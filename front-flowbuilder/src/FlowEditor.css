@@ -1,0 +1,39 @@
+.custom-node {
+    width: 250px;
+    padding: 10px;
+    border-radius: 10px;
+    text-align: center;
+    font-size: 14px;
+    font-family: Arial, sans-serif;
+    box-shadow: 2px 2px 8px rgba(0, 0, 0, 0.1);
+  }
+  
+  .custom-node.bot {
+    background-color: #dcf8c6; /* Verde estilo WhatsApp */
+    border: 2px solid #25d366;
+  }
+  
+  .custom-node.user {
+    background-color: #e9ecef; /* Cinza estilo WhatsApp */
+    border: 2px solid #6c757d;
+  }
+  
+  .node-content {
+    padding: 5px;
+  }
+  
+  .node-options {
+    list-style: none;
+    padding: 0;
+    margin-top: 5px;
+  }
+  
+  .node-options li {
+    background: white;
+    padding: 5px;
+    border-radius: 5px;
+    margin-top: 3px;
+    font-size: 12px;
+    border: 1px solid #ccc;
+  }
+  
