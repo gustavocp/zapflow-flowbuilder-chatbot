@@ -1,0 +1,80 @@
+{
+  "bot_name": "Assistente Virtual",
+  "greetings": ["oi", "olá", "hello", "e aí", "bom dia", "boa tarde", "boa noite", "fala", "opa", "salve"],
+  "steps": [
+    {
+      "id": "start",
+      "messages": ["Olá! Tudo bem? Escolha uma opção do menu abaixo:"],
+      "options": [
+        { "text": "Suporte técnico", "synonyms": ["suporte", "ajuda", "problema técnico"], "next": "support" },
+        { "text": "Falar com um atendente", "synonyms": ["atendente", "humano", "suporte humano"], "next": "escalate" }
+      ]
+    },
+    {
+      "id": "support",
+      "messages": ["Ótimo! Você está tendo problemas com qual serviço?"],
+      "options": [
+        { "text": "Internet", "synonyms": ["wifi", "banda larga", "conexão"], "next": "internet_issue" },
+        { "text": "Telefone", "synonyms": ["fixo", "chamada", "linha telefônica"], "next": "phone_issue" }
+      ]
+    },
+    {
+      "id": "internet_issue",
+      "messages": ["Entendi! Você está sem conexão total ou a internet está lenta?"],
+      "options": [
+        { "text": "Sem conexão", "synonyms": ["não conecta", "desconectado", "sem internet"], "next": "router_restart" },
+        { "text": "Internet lenta", "synonyms": ["lento", "travando", "ping alto"], "next": "speed_test" }
+      ]
+    },
+    {
+      "id": "phone_issue",
+      "messages": ["Entendi! Você está sem sinal ou não consegue fazer chamadas?"],
+      "options": [
+        { "text": "Sem sinal", "synonyms": ["não tem sinal", "falha", "queda de linha"], "next": "signal_check" },
+        { "text": "Não faz chamadas", "synonyms": ["erro ao ligar", "não chama", "chamada não completa"], "next": "call_support" }
+      ]
+    },
+    {
+      "id": "router_restart",
+      "messages": ["Por favor, reinicie seu roteador e aguarde 5 minutos. O problema persiste?"],
+      "options": [
+        { "text": "Sim", "next": "escalate" },
+        { "text": "Não", "next": "end" }
+      ]
+    },
+    {
+      "id": "speed_test",
+      "messages": ["Realize um teste de velocidade em speedtest.net e informe o resultado. Sua velocidade está abaixo do esperado?"],
+      "options": [
+        { "text": "Sim", "next": "escalate" },
+        { "text": "Não", "next": "end" }
+      ]
+    },
+    {
+      "id": "signal_check",
+      "messages": ["Verifique se há quedas de serviço na sua região pelo site da operadora. Deseja falar com um atendente?"],
+      "options": [
+        { "text": "Sim", "next": "escalate" },
+        { "text": "Não", "next": "end" }
+      ]
+    },
+    {
+      "id": "call_support",
+      "messages": ["Tente reiniciar o telefone e testar novamente. Se o problema persistir, deseja falar com um atendente?"],
+      "options": [
+        { "text": "Sim", "next": "escalate" },
+        { "text": "Não", "next": "end" }
+      ]
+    },
+    {
+      "id": "escalate",
+      "messages": ["Conectando você a um atendente humano..."],
+      "external_api": "https://minhaapi.com/escalate"
+    },
+    {
+      "id": "end",
+      "messages": ["Que bom que conseguimos resolver! Se precisar de mais ajuda, estou por aqui."],
+      "options": []
+    }
+  ]
+}

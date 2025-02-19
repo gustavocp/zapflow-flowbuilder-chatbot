@@ -1,0 +1,47 @@
+{
+    "bot_name": "CRM Onboarding",
+    "steps": [
+      {
+        "id": "start",
+        "messages": ["Recebemos sua inscrição! Vamos começar o onboarding."],
+        "next": "mensagem_A"
+      },
+      {
+        "id": "mensagem_A",
+        "messages": ["Mensagem A: Bem-vindo ao nosso sistema!"],
+        "next": "espera_3_dias_A"
+      },
+      {
+        "id": "espera_3_dias_A",
+        "messages": ["Aguardando 3 dias..."],
+        "next": "mensagem_B"
+      },
+      {
+        "id": "mensagem_B",
+        "messages": ["Mensagem B: Como está indo sua experiência até agora?"],
+        "next": "espera_3_dias_B"
+      },
+      {
+        "id": "espera_3_dias_B",
+        "messages": ["Aguardando 3 dias..."],
+        "next": "mensagem_C"
+      },
+      {
+        "id": "mensagem_C",
+        "messages": ["Mensagem C: Precisa de ajuda com alguma coisa?"],
+        "options": [
+          { "text": "Sim, preciso de suporte", "next": "suporte" },
+          { "text": "Não, tudo certo!", "next": "finalizar" }
+        ]
+      },
+      {
+        "id": "suporte",
+        "messages": ["Redirecionando para o suporte..."]
+      },
+      {
+        "id": "finalizar",
+        "messages": ["Obrigado por completar o onboarding!"]
+      }
+    ]
+  }
+  

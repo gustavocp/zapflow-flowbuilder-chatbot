@@ -1,0 +1,49 @@
+{
+  "bot_name": "Assistente Virtual",
+  "greetings": ["oi", "olá", "hello", "e aí", "bom dia", "boa tarde", "boa noite", "fala", "opa", "salve"],
+  "steps": [
+    {
+      "id": "start",
+      "messages": ["Olá! Tudo bem? Qual é o seu nome?"],
+      "capture": "name",
+      "validation": "single_word",
+      "error_message": "Digite apenas seu primeiro nome.",
+      "next": "preference"
+    },
+    {
+      "id": "preference",
+      "messages": ["Você prefere A, B ou C?"],
+      "capture": "choice",
+      "validation": "choice",
+      "valid_options": ["A", "B", "C"],
+      "error_message": "Por favor, escolha entre A, B ou C.",
+      "next": "menu"
+    },
+    {
+      "id": "menu",
+      "messages": ["Olá {{name}}! Você escolheu {{choice}}. Como posso ajudar hoje?"],
+      "options": [
+        { 
+          "text": "Ver status", 
+          "synonyms": ["status", "meu status", "consultar status", "verificar status"], 
+          "next": "status" 
+        },
+        { 
+          "text": "Falar com suporte", 
+          "synonyms": ["suporte", "atendimento", "preciso de ajuda", "falar com alguém", "falar com humano"], 
+          "next": "support" 
+        }
+      ]
+    },
+    {
+      "id": "status",
+      "messages": ["Aqui está seu status atual..."],
+      "options": []
+    },
+    {
+      "id": "support",
+      "messages": ["Conectando você ao suporte..."],
+      "options": []
+    }
+  ]
+}

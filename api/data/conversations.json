@@ -1,0 +1,120 @@
+{
+  "111": {
+    "currentStep": "preference",
+    "history": [
+      "start",
+      "preference"
+    ],
+    "variables": {
+      "name": "oi"
+    }
+  },
+  "11111": {
+    "currentStep": "menu",
+    "history": [
+      "start",
+      "preference",
+      "menu"
+    ],
+    "variables": {
+      "name": "oi",
+      "choice": "a"
+    }
+  },
+  "111111": {
+    "currentStep": "preference",
+    "history": [
+      "start",
+      "preference"
+    ],
+    "variables": {
+      "name": "oi"
+    }
+  },
+  "user123": {
+    "currentStep": "preference",
+    "history": [
+      "start",
+      "preference"
+    ],
+    "variables": {
+      "name": "oi"
+    }
+  },
+  "user1234": {
+    "currentStep": "preference",
+    "history": [
+      "start",
+      "preference"
+    ],
+    "variables": {
+      "name": "oi"
+    }
+  },
+  "user1234555": {
+    "currentStep": "preference",
+    "history": [
+      "start",
+      "preference"
+    ],
+    "variables": {
+      "name": "oi"
+    }
+  },
+  "aa": {
+    "currentStep": "menu",
+    "history": [
+      "start",
+      "preference",
+      "menu"
+    ],
+    "variables": {
+      "name": "Oi",
+      "choice": "a"
+    }
+  },
+  "a2a": {
+    "currentStep": "preference",
+    "history": [
+      "start",
+      "preference"
+    ],
+    "variables": {
+      "name": "oi"
+    }
+  },
+  "a2aa": {
+    "currentStep": "preference",
+    "history": [
+      "start",
+      "preference"
+    ],
+    "variables": {
+      "name": "oi"
+    }
+  },
+  "aarg1": {
+    "currentStep": "menu",
+    "history": [
+      "start",
+      "preference",
+      "menu"
+    ],
+    "variables": {
+      "name": "gussstavs",
+      "choice": "a"
+    }
+  },
+  "aarg12": {
+    "currentStep": "menu",
+    "history": [
+      "start",
+      "preference",
+      "menu"
+    ],
+    "variables": {
+      "name": "arghhhhh",
+      "choice": "a"
+    }
+  }
+}

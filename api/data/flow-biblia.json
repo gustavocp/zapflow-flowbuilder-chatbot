@@ -1,0 +1,19 @@
+{
+    "bot_name": "CRM Bíblia",
+    "steps": [
+      {
+        "id": "start",
+        "messages": ["Oi! Eu sou a Bi.Blia, seu chatbot evangélico. Eu posso te enviar conteúdos diários ou semanais sobre a Palavra de Deus. Como você prefere?"],
+        "capture": "frequencia",
+        "validation": "choice",
+        "valid_options": ["Diário", "Semanal"],
+        "error_message": "Por favor, escolha entre Diário ou Semanal.",
+        "next": "escalate"
+      },
+      {
+        "id": "escalate",
+        "messages": ["Ótimo! Você escolheu {{frequencia}}. A partir de agora, enviarei conteúdos nessa frequência!"]
+      }
+    ]
+  }
+  

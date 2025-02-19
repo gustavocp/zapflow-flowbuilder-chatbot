@@ -1,0 +1,65 @@
+/**
+ * @swagger
+ * /chatbot/message:
+ *   post:
+ *     summary: Processa a mensagem do usuário e retorna a próxima etapa do chatbot.
+ *     description: 
+ *       O chatbot segue um fluxo de conversa baseado em um JSON. Ele pode capturar dados, validar respostas, 
+ *       reconhecer sinônimos, armazenar informações do usuário e encaminhar mensagens para uma API externa após o escalonamento.
+ *       Se o bot estiver no estado "escalate", ele apenas repassa a mensagem para a API externa e retorna a resposta.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - user_id
+ *               - message
+ *             properties:
+ *               user_id:
+ *                 type: string
+ *                 example: "user123"
+ *                 description: "Identificador único do usuário"
+ *               message:
+ *                 type: string
+ *                 example: "Oi"
+ *                 description: "Mensagem enviada pelo usuário"
+ *     responses:
+ *       200:
+ *         description: Responde com a próxima etapa do chatbot ou encaminha a mensagem para a API externa se estiver no estado 'escalate'.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Olá! Tudo bem? Qual é o seu nome?"
+ *                 options:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       text:
+ *                         type: string
+ *                         example: "Sim"
+ *                       next:
+ *                         type: string
+ *                         example: "support"
+ *       400:
+ *         description: Erro caso os parâmetros obrigatórios não sejam enviados.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                   example: "Parâmetros 'user_id' e 'message' são obrigatórios"
+ *       500:
+ *         description: Erro interno caso haja um problema no processamento.
+ */
+/**
+ * Substitui variáveis dentro das mensagens (ex: {{name}})
+ */
