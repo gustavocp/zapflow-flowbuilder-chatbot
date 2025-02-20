@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useMemo, useRef } from "react";
 import ReactFlow, {
   Controls,
   Background,
@@ -13,18 +13,13 @@ import "reactflow/dist/style.css";
 
 // =================== Nó customizado (cores) ===================
 const CustomNode = ({ data }) => {
-  // Pinta de verde somente se o tipo for "Mensagem"; os demais ficam cinza.
-  const backgroundColor = data.nodeType === "Mensagem" ? "#d4f7d4" : "#f0f0f0";
+  const backgroundColor =
+    data.type === "bot" ? "#d4f7d4" : // verde claro
+    data.type === "user" ? "#f0f0f0" : // cinza claro
+    "#fff";
 
   return (
-    <div
-      style={{
-        border: "1px solid #999",
-        borderRadius: 6,
-        background: backgroundColor,
-        padding: 10
-      }}
-    >
+    <div style={{ border: "1px solid #999", borderRadius: 6, background: backgroundColor, padding: 10 }}>
       <Handle type="target" position={Position.Top} />
       <div>
         <strong>{data.label || "Sem título"}</strong>
@@ -101,22 +96,23 @@ const nodeTypes = { customNode: CustomNode };
 const edgeTypes = { deleteEdge: DeleteEdge };
 
 // =================== Converter JSON (carregado) => Nodes/Edges ===================
+// Converte o objeto JSON do fluxo para nós e arestas usados pelo React Flow.
 function convertChatbotFlowToNodesAndEdges(flow) {
   const nodes = [];
   const edges = [];
 
+  // A posição vertical é determinada pela ordem do array de steps
   flow.steps.forEach((step, index) => {
     const baseY = index * 200;
 
-    // Nó principal: atribui o nodeType a partir do JSON ou, por padrão,
-    // se houver captura, define "Resposta do Usuário"; caso contrário, "Mensagem"
+    // Nó principal
     nodes.push({
       id: step.id,
       type: "customNode",
       position: { x: 200, y: baseY },
       data: {
         label: step.messages?.[0] || "Mensagem",
-        nodeType: step.nodeType || (step.capture ? "Resposta do Usuário" : "Mensagem"),
+        type: step.options ? "user" : "bot",
         capture: step.capture || null,
         validation: step.validation || null,
         error_message: step.error_message || null,
@@ -134,7 +130,7 @@ function convertChatbotFlowToNodesAndEdges(flow) {
         position: { x: 200, y: baseY + 100 },
         data: {
           label: "Usuário responde...",
-          nodeType: "Resposta do Usuário",
+          type: "user",
           stepId: userNodeId
         }
       });
@@ -174,10 +170,12 @@ function convertChatbotFlowToNodesAndEdges(flow) {
 }
 
 // =================== Converter Nodes/Edges => JSON ===================
+// Converte os nós e arestas atuais para o objeto JSON do fluxo.
 function convertNodesAndEdgesToChatbotFlow(nodes, edges) {
   const stepMap = {};
   const order = [];
 
+  // Processa os nós, garantindo que cada nó válido crie uma entrada
   nodes.filter((node) => node && node.data).forEach((node) => {
     const stepId = node.data.stepId || node.id;
     if (!stepId) return;
@@ -187,7 +185,6 @@ function convertNodesAndEdgesToChatbotFlow(nodes, edges) {
       stepMap[stepId] = {
         id: stepId,
         messages: [node.data.label || ""],
-        nodeType: node.data.nodeType || "Mensagem",
         capture: node.data.capture || null,
         validation: node.data.validation || null,
         error_message: node.data.error_message || null,
@@ -197,12 +194,14 @@ function convertNodesAndEdgesToChatbotFlow(nodes, edges) {
       const originalStepId = stepId.replace("_response", "");
       if (!order.includes(originalStepId)) order.push(originalStepId);
       if (!stepMap[originalStepId]) {
+        // Cria uma entrada padrão se não existir
         stepMap[originalStepId] = { id: originalStepId, messages: [] };
       }
       stepMap[originalStepId].capture = stepMap[originalStepId].capture || "algum_capture";
     }
   });
 
+  // Processa as arestas para definir o campo "next"
   edges.forEach((edge) => {
     const { source, target } = edge;
     const sourceIsResponse = source.endsWith("_response");
@@ -228,6 +227,7 @@ function convertNodesAndEdgesToChatbotFlow(nodes, edges) {
     }
   });
 
+  // Cria o array de steps a partir da ordem, filtrando entradas indefinidas
   const steps = order
     .map((stepId) => {
       const st = stepMap[stepId];
@@ -235,7 +235,6 @@ function convertNodesAndEdgesToChatbotFlow(nodes, edges) {
       return {
         id: st.id,
         messages: st.messages || [],
-        nodeType: st.nodeType || "Mensagem",
         capture: st.capture || undefined,
         validation: st.validation || undefined,
         error_message: st.error_message || undefined,
@@ -260,12 +259,13 @@ function downloadJSON(jsonData, filename) {
 }
 
 // =================== Estados Iniciais ===================
+// Inicia com um único nó "Welcome"
 const initialNodes = [
   {
     id: "welcome",
     type: "customNode",
     position: { x: 300, y: 100 },
-    data: { label: "Welcome", nodeType: "Mensagem", stepId: "welcome" }
+    data: { label: "Welcome", type: "bot", stepId: "welcome" }
   }
 ];
 const initialEdges = [];
@@ -281,13 +281,12 @@ export default function FlowEditor() {
     }))
   );
 
-  // Estado para o modal de edição
+  // Modal para edição
   const [selectedNode, setSelectedNode] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [nodeLabel, setNodeLabel] = useState("");
-  const [nodeType, setNodeType] = useState("Mensagem");
 
-  // Função para excluir arestas
+  // =================== Funções de Arestas ===================
   function handleDeleteEdge(edgeId) {
     setEdges((eds) => eds.filter((e) => e.id !== edgeId));
   }
@@ -302,7 +301,7 @@ export default function FlowEditor() {
     setEdges((eds) => addEdge(newEdge, eds));
   };
 
-  // Cria um novo nó com o tipo padrão "Mensagem"
+  // =================== Função para Novo Nó ===================
   const handleNewNode = () => {
     const newId = `newNode_${Date.now()}`;
     const newNode = {
@@ -311,19 +310,18 @@ export default function FlowEditor() {
       position: { x: 200, y: 200 },
       data: {
         label: "Novo nó",
-        nodeType: "Mensagem",
+        type: "bot",
         stepId: newId
       }
     };
     setNodes((nds) => [...nds, newNode]);
   };
 
-  // Ao clicar em um nó, abre o modal e carrega seus dados
+  // =================== Modal de Edição ===================
   const handleNodeClick = (event, node) => {
     event.stopPropagation();
     setSelectedNode(node);
     setNodeLabel(node.data.label || "");
-    setNodeType(node.data.nodeType || "Mensagem");
     setIsModalOpen(true);
   };
 
@@ -332,7 +330,6 @@ export default function FlowEditor() {
     setSelectedNode(null);
   };
 
-  // Salva as alterações (texto e tipo) do nó
   const saveNodeChanges = () => {
     if (!selectedNode) return;
     setNodes((prev) =>
@@ -342,8 +339,7 @@ export default function FlowEditor() {
             ...n,
             data: {
               ...n.data,
-              label: nodeLabel,
-              nodeType: nodeType
+              label: nodeLabel
             }
           };
         }
@@ -355,20 +351,17 @@ export default function FlowEditor() {
 
   const handleDeleteNode = () => {
     if (!selectedNode) return;
-    setEdges((eds) =>
-      eds.filter((e) => e.source !== selectedNode.id && e.target !== selectedNode.id)
-    );
+    setEdges((eds) => eds.filter((e) => e.source !== selectedNode.id && e.target !== selectedNode.id));
     setNodes((nds) => nds.filter((n) => n.id !== selectedNode.id));
     closeModal();
   };
 
-  // Salvar / Baixar JSON
+  // =================== Salvar / Carregar JSON ===================
   const handleSaveJson = () => {
     const result = convertNodesAndEdgesToChatbotFlow(nodes, edges);
     downloadJSON(result, "chatbotFlow.json");
   };
 
-  // Carregar JSON
   const fileInputRef = useRef(null);
   const handleLoadJson = () => {
     if (fileInputRef.current) {
@@ -438,7 +431,7 @@ export default function FlowEditor() {
         <MiniMap />
       </ReactFlow>
 
-      {/* Modal de Edição */}
+      {/* Modal centralizado */}
       {isModalOpen && selectedNode && (
         <div
           onClick={closeModal}
@@ -485,24 +478,11 @@ export default function FlowEditor() {
             <label style={{ display: "block", marginBottom: 8 }}>
               Texto:
               <textarea
-                rows={6}
+                rows={4}
                 value={nodeLabel}
                 onChange={(e) => setNodeLabel(e.target.value)}
                 style={{ width: "100%", marginTop: 4 }}
               />
-            </label>
-            <label style={{ display: "block", marginBottom: 8 }}>
-              Tipo:
-              <select
-                value={nodeType}
-                onChange={(e) => setNodeType(e.target.value)}
-                style={{ width: "100%", marginTop: 4 }}
-              >
-                <option value="Mensagem">Mensagem</option>
-                <option value="Resposta do Usuário">Resposta do Usuário</option>
-                <option value="Espera">Espera</option>
-                <option value="Chamada de Api">Chamada de Api</option>
-              </select>
             </label>
             <div style={{ marginTop: 10, textAlign: "right" }}>
               <button onClick={saveNodeChanges} style={{ marginRight: 10 }}>
@@ -516,7 +496,7 @@ export default function FlowEditor() {
         </div>
       )}
 
-      {/* CSS para exibir o "x" da aresta no hover */}
+      {/* CSS para o "x" da aresta aparecer no hover */}
       <style>
         {`
           .edge-group:hover .edge-delete {
