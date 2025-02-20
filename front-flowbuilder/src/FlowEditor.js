@@ -22,7 +22,9 @@ const CustomNode = ({ data }) => {
         border: "1px solid #999",
         borderRadius: 6,
         background: backgroundColor,
-        padding: 10
+        padding: 10,
+        maxWidth: 300,         // Limita a largura do card
+        whiteSpace: "pre-wrap" // Respeita quebras de linha
       }}
     >
       <Handle type="target" position={Position.Top} />
@@ -108,8 +110,7 @@ function convertChatbotFlowToNodesAndEdges(flow) {
   flow.steps.forEach((step, index) => {
     const baseY = index * 200;
 
-    // Nó principal: atribui o nodeType a partir do JSON ou, por padrão,
-    // se houver captura, define "Resposta do Usuário"; caso contrário, "Mensagem"
+    // Nó principal
     nodes.push({
       id: step.id,
       type: "customNode",
@@ -178,11 +179,13 @@ function convertNodesAndEdgesToChatbotFlow(nodes, edges) {
   const stepMap = {};
   const order = [];
 
+  // Monta stepMap a partir dos nós
   nodes.filter((node) => node && node.data).forEach((node) => {
     const stepId = node.data.stepId || node.id;
     if (!stepId) return;
     if (!order.includes(stepId)) order.push(stepId);
     const isResponseNode = stepId.endsWith("_response");
+
     if (!isResponseNode) {
       stepMap[stepId] = {
         id: stepId,
@@ -194,15 +197,19 @@ function convertNodesAndEdgesToChatbotFlow(nodes, edges) {
         options: node.data.options || []
       };
     } else {
+      // É um nó "Usuário responde..."
       const originalStepId = stepId.replace("_response", "");
       if (!order.includes(originalStepId)) order.push(originalStepId);
       if (!stepMap[originalStepId]) {
         stepMap[originalStepId] = { id: originalStepId, messages: [] };
       }
-      stepMap[originalStepId].capture = stepMap[originalStepId].capture || "algum_capture";
+      // Indica que esse step tem "capture"
+      stepMap[originalStepId].capture =
+        stepMap[originalStepId].capture || "algum_capture";
     }
   });
 
+  // Processa arestas
   edges.forEach((edge) => {
     const { source, target } = edge;
     const sourceIsResponse = source.endsWith("_response");
@@ -228,6 +235,7 @@ function convertNodesAndEdgesToChatbotFlow(nodes, edges) {
     }
   });
 
+  // Cria array de steps em ordem
   const steps = order
     .map((stepId) => {
       const st = stepMap[stepId];
@@ -281,13 +289,16 @@ export default function FlowEditor() {
     }))
   );
 
-  // Estado para o modal de edição
+  // Modal
   const [selectedNode, setSelectedNode] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [nodeLabel, setNodeLabel] = useState("");
   const [nodeType, setNodeType] = useState("Mensagem");
 
-  // Função para excluir arestas
+  // Para carregar arquivo JSON
+  const fileInputRef = useRef(null);
+
+  // =================== Edge Functions ===================
   function handleDeleteEdge(edgeId) {
     setEdges((eds) => eds.filter((e) => e.id !== edgeId));
   }
@@ -302,7 +313,7 @@ export default function FlowEditor() {
     setEdges((eds) => addEdge(newEdge, eds));
   };
 
-  // Cria um novo nó com o tipo padrão "Mensagem"
+  // =================== Node Functions ===================
   const handleNewNode = () => {
     const newId = `newNode_${Date.now()}`;
     const newNode = {
@@ -318,7 +329,6 @@ export default function FlowEditor() {
     setNodes((nds) => [...nds, newNode]);
   };
 
-  // Ao clicar em um nó, abre o modal e carrega seus dados
   const handleNodeClick = (event, node) => {
     event.stopPropagation();
     setSelectedNode(node);
@@ -332,7 +342,6 @@ export default function FlowEditor() {
     setSelectedNode(null);
   };
 
-  // Salva as alterações (texto e tipo) do nó
   const saveNodeChanges = () => {
     if (!selectedNode) return;
     setNodes((prev) =>
@@ -355,27 +364,51 @@ export default function FlowEditor() {
 
   const handleDeleteNode = () => {
     if (!selectedNode) return;
-    setEdges((eds) =>
-      eds.filter((e) => e.source !== selectedNode.id && e.target !== selectedNode.id)
-    );
+    // remove edges ligadas a esse nó
+    setEdges((eds) => eds.filter((e) => e.source !== selectedNode.id && e.target !== selectedNode.id));
+    // remove o nó
     setNodes((nds) => nds.filter((n) => n.id !== selectedNode.id));
     closeModal();
   };
 
-  // Salvar / Baixar JSON
+  // =================== Duplicate Node ===================
+  const handleDuplicateNode = () => {
+    if (!selectedNode) return;
+    const newId = `clone_${Date.now()}`;
+    const offsetX = selectedNode.position.x + 50;
+    const offsetY = selectedNode.position.y + 50;
+
+    // Cria o nó clonado com novo ID e posição deslocada
+    const newNode = {
+      ...selectedNode,
+      id: newId,
+      position: { x: offsetX, y: offsetY },
+      data: {
+        ...selectedNode.data,
+        label: nodeLabel,
+        nodeType: nodeType,
+        stepId: newId
+      }
+    };
+
+    setNodes((nds) => [...nds, newNode]);
+    closeModal();
+  };
+
+  // =================== Salvar / Baixar JSON ===================
   const handleSaveJson = () => {
     const result = convertNodesAndEdgesToChatbotFlow(nodes, edges);
     downloadJSON(result, "chatbotFlow.json");
   };
 
-  // Carregar JSON
-  const fileInputRef = useRef(null);
+  // =================== Carregar JSON ===================
   const handleLoadJson = () => {
     if (fileInputRef.current) {
       fileInputRef.current.value = null;
       fileInputRef.current.click();
     }
   };
+
   const onFileChange = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -461,7 +494,7 @@ export default function FlowEditor() {
               background: "#fff",
               padding: 20,
               borderRadius: 8,
-              width: 300,
+              width: 320,
               maxHeight: "80vh",
               overflowY: "auto",
               position: "relative"
@@ -488,7 +521,7 @@ export default function FlowEditor() {
                 rows={6}
                 value={nodeLabel}
                 onChange={(e) => setNodeLabel(e.target.value)}
-                style={{ width: "100%", marginTop: 4 }}
+                style={{ width: "100%", marginTop: 4, resize: "vertical" }}
               />
             </label>
             <label style={{ display: "block", marginBottom: 8 }}>
@@ -505,6 +538,9 @@ export default function FlowEditor() {
               </select>
             </label>
             <div style={{ marginTop: 10, textAlign: "right" }}>
+              <button onClick={handleDuplicateNode} style={{ marginRight: 10 }}>
+                Duplicar
+              </button>
               <button onClick={saveNodeChanges} style={{ marginRight: 10 }}>
                 Salvar
               </button>
