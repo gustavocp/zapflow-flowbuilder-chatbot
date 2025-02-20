@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import ReactFlow, {
   Controls,
   Background,
@@ -13,8 +13,10 @@ import "reactflow/dist/style.css";
 
 // =================== Nó customizado (cores e quebra de linha) ===================
 const CustomNode = ({ data }) => {
-  // Pinta de verde somente se o tipo for "Mensagem"; os demais ficam cinza.
-  const backgroundColor = data.nodeType === "Mensagem" ? "#d4f7d4" : "#f0f0f0";
+  // Define cores conforme o tipo do nó
+  let backgroundColor = "#f0f0f0";
+  if (data.nodeType === "Mensagem") backgroundColor = "#d4f7d4";
+  if (data.nodeType === "Espera") backgroundColor = "#d9d9d9";
 
   return (
     <div
@@ -102,8 +104,7 @@ const DeleteEdge = (props) => {
 const nodeTypes = { customNode: CustomNode };
 const edgeTypes = { deleteEdge: DeleteEdge };
 
-// =================== Converter JSON (carregado) => Nodes/Edges ===================
-// Se o step tiver "position", usa-o; caso contrário, calcula posição padrão.
+// =================== Converter JSON -> Nodes/Edges ===================
 function convertChatbotFlowToNodesAndEdges(flow) {
   const nodes = [];
   const edges = [];
@@ -112,56 +113,25 @@ function convertChatbotFlowToNodesAndEdges(flow) {
     const baseY = index * 200;
     const position = step.position || { x: 200, y: baseY };
 
-    // Nó principal
     nodes.push({
       id: step.id,
       type: "customNode",
-      position: position,
+      position,
       data: {
         label: step.messages?.[0] || "Mensagem",
-        nodeType: step.nodeType || (step.capture ? "Resposta do Usuário" : "Mensagem"),
-        capture: step.capture || null,
-        validation: step.validation || null,
-        error_message: step.error_message || null,
+        nodeType: step.nodeType || "Mensagem",
         options: step.options || [],
         stepId: step.id
       }
     });
 
-    // Se houver captura, cria o nó "Usuário responde"
-    if (step.capture) {
-      const userNodeId = `${step.id}_response`;
-      nodes.push({
-        id: userNodeId,
-        type: "customNode",
-        position: { x: position.x, y: position.y + 100 },
-        data: {
-          label: "Usuário responde...",
-          nodeType: "Resposta do Usuário",
-          stepId: userNodeId
-        }
-      });
-      edges.push({
-        id: `edge-${step.id}-${userNodeId}`,
-        source: step.id,
-        target: userNodeId
-      });
-      if (step.next) {
-        edges.push({
-          id: `edge-${userNodeId}-${step.next}`,
-          source: userNodeId,
-          target: step.next
-        });
-      }
-    } else if (step.next) {
+    if (step.next) {
       edges.push({
         id: `edge-${step.id}-${step.next}`,
         source: step.id,
         target: step.next
       });
     }
-
-    // Se houver opções, cada opção gera uma aresta
     if (step.options) {
       step.options.forEach((opt, idx) => {
         edges.push({
@@ -176,80 +146,16 @@ function convertChatbotFlowToNodesAndEdges(flow) {
   return { nodes, edges };
 }
 
-// =================== Converter Nodes/Edges => JSON ===================
-// Salva também a posição de cada nó.
+// =================== Converter Nodes/Edges -> JSON ===================
 function convertNodesAndEdgesToChatbotFlow(nodes, edges) {
-  const stepMap = {};
-  const order = [];
-
-  nodes.filter((node) => node && node.data).forEach((node) => {
-    const stepId = node.data.stepId || node.id;
-    if (!stepId) return;
-    if (!order.includes(stepId)) order.push(stepId);
-    const isResponseNode = stepId.endsWith("_response");
-    if (!isResponseNode) {
-      stepMap[stepId] = {
-        id: stepId,
-        messages: [node.data.label || ""],
-        nodeType: node.data.nodeType || "Mensagem",
-        capture: node.data.capture || null,
-        validation: node.data.validation || null,
-        error_message: node.data.error_message || null,
-        options: node.data.options || [],
-        position: node.position // Salva a posição
-      };
-    } else {
-      const originalStepId = stepId.replace("_response", "");
-      if (!order.includes(originalStepId)) order.push(originalStepId);
-      if (!stepMap[originalStepId]) {
-        stepMap[originalStepId] = { id: originalStepId, messages: [] };
-      }
-      stepMap[originalStepId].capture = stepMap[originalStepId].capture || "algum_capture";
-    }
-  });
-
-  edges.forEach((edge) => {
-    const { source, target } = edge;
-    const sourceIsResponse = source.endsWith("_response");
-    const targetIsResponse = target.endsWith("_response");
-
-    if (!sourceIsResponse && !targetIsResponse && stepMap[source] && stepMap[target]) {
-      if (!stepMap[source].options || stepMap[source].options.length === 0) {
-        stepMap[source].next = target;
-      } else {
-        const foundOpt = (stepMap[source].options || []).find((o) => o.next === target);
-        if (!foundOpt) {
-          stepMap[source].next = target;
-        }
-      }
-    }
-
-    if (sourceIsResponse && !targetIsResponse && stepMap[target]) {
-      const original = source.replace("_response", "");
-      if (!stepMap[original]) {
-        stepMap[original] = { id: original, messages: [] };
-      }
-      stepMap[original].next = target;
-    }
-  });
-
-  const steps = order
-    .map((stepId) => {
-      const st = stepMap[stepId];
-      if (!st) return null;
-      return {
-        id: st.id,
-        messages: st.messages || [],
-        nodeType: st.nodeType || "Mensagem",
-        capture: st.capture || undefined,
-        validation: st.validation || undefined,
-        error_message: st.error_message || undefined,
-        next: st.next || undefined,
-        options: st.options || [],
-        position: st.position // Inclui posição
-      };
-    })
-    .filter((s) => s !== null);
+  const steps = nodes.map((node) => ({
+    id: node.id,
+    messages: [node.data.label || ""],
+    nodeType: node.data.nodeType || "Mensagem",
+    next: edges.find((edge) => edge.source === node.id)?.target || undefined,
+    options: node.data.options || [],
+    position: node.position
+  }));
 
   return { bot_name: "Assistente Virtual Exportado", steps };
 }
@@ -265,38 +171,135 @@ function downloadJSON(jsonData, filename) {
   URL.revokeObjectURL(url);
 }
 
-// =================== Estados Iniciais ===================
-const initialNodes = [
-  {
-    id: "welcome",
-    type: "customNode",
-    position: { x: 300, y: 100 },
-    data: { label: "Welcome", nodeType: "Mensagem", stepId: "welcome" }
-  }
-];
-const initialEdges = [];
+// =================== Fluxo Padrão ===================
+const defaultFlow = {
+  bot_name: "Assistente Virtual Exportado",
+  steps: [
+    {
+      id: "welcome",
+      messages: ["Welcome"],
+      nodeType: "Mensagem",
+      position: { x: 300, y: 100 }
+    }
+  ]
+};
 
-// =================== Componente Principal ===================
 export default function FlowEditor() {
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(
-    initialEdges.map((e) => ({
-      ...e,
-      type: "deleteEdge",
-      data: { onDeleteEdge: handleDeleteEdge }
-    }))
-  );
-
-  // Estado para o modal de edição
+  const [nodes, setNodes, onNodesChange] = useNodesState([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [selectedNode, setSelectedNode] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [nodeLabel, setNodeLabel] = useState("");
   const [nodeType, setNodeType] = useState("Mensagem");
-
-  // Para carregar arquivo JSON
   const fileInputRef = useRef(null);
 
-  // =================== Função para excluir arestas ===================
+  // Ao montar, tenta carregar o fluxo via POST
+  useEffect(() => {
+    loadFlowViaGet();
+  }, []);
+
+  // =================== Tenta carregar JSON via POST ===================
+  async function loadFlowViaPost() {
+    try {
+      // Faz POST para a mesma URL ou outro endpoint que retorne o JSON do fluxo
+      const response = await fetch(window.location.href, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        // Se quiser enviar algo no body, faça:
+        // body: JSON.stringify({ any: "data" })
+      });
+
+      if (!response.ok) {
+        // Se o servidor não retornar 200 OK, usa fluxo padrão
+        console.warn("Nenhum fluxo via POST. Usando defaultFlow.");
+        setDefaultNodesAndEdges();
+        return;
+      }
+
+      const flow = await response.json();
+      console.log("Fluxo recebido via POST:", flow);
+
+      const { nodes: loadedNodes, edges: loadedEdges } = convertChatbotFlowToNodesAndEdges(flow);
+      setNodes(
+        loadedNodes.map((n) => ({
+          ...n,
+          data: { ...n.data }
+        }))
+      );
+      setEdges(
+        loadedEdges.map((ed) => ({
+          ...ed,
+          type: "deleteEdge",
+          data: { onDeleteEdge: handleDeleteEdge }
+        }))
+      );
+    } catch (err) {
+      console.error("Erro ao carregar fluxo via POST:", err);
+      // Se der erro, usa fluxo padrão
+      setDefaultNodesAndEdges();
+    }
+  }
+
+  async function loadFlowViaGet() {
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const dataParam = urlParams.get("data");
+  
+      if (!dataParam) {
+        console.warn("Nenhum fluxo via GET. Usando defaultFlow.");
+        setDefaultNodesAndEdges();
+        return;
+      }
+  
+      // Decodifica o JSON que foi passado na URL
+      const decodedFlowJson = JSON.parse(decodeURIComponent(dataParam));
+      console.log("Fluxo recebido via GET:", decodedFlowJson);
+  
+      const { nodes: loadedNodes, edges: loadedEdges } = convertChatbotFlowToNodesAndEdges(decodedFlowJson);
+  
+      setNodes(
+        loadedNodes.map((n) => ({
+          ...n,
+          data: { ...n.data }
+        }))
+      );
+  
+      setEdges(
+        loadedEdges.map((ed) => ({
+          ...ed,
+          type: "deleteEdge",
+          data: { onDeleteEdge: handleDeleteEdge }
+        }))
+      );
+    } catch (err) {
+      console.error("Erro ao carregar fluxo via GET:", err);
+      setDefaultNodesAndEdges();
+    }
+  }
+
+
+  
+  // Se não carregou nada via POST, define o fluxo padrão
+  function setDefaultNodesAndEdges() {
+    const { nodes: defNodes, edges: defEdges } = convertChatbotFlowToNodesAndEdges(defaultFlow);
+    setNodes(
+      defNodes.map((n) => ({
+        ...n,
+        data: { ...n.data }
+      }))
+    );
+    setEdges(
+      defEdges.map((ed) => ({
+        ...ed,
+        type: "deleteEdge",
+        data: { onDeleteEdge: handleDeleteEdge }
+      }))
+    );
+  }
+
+  // =================== Ações com arestas ===================
   function handleDeleteEdge(edgeId) {
     setEdges((eds) => eds.filter((e) => e.id !== edgeId));
   }
@@ -311,7 +314,7 @@ export default function FlowEditor() {
     setEdges((eds) => addEdge(newEdge, eds));
   };
 
-  // =================== Função para criar novo nó ===================
+  // =================== Cria novo nó ===================
   const handleNewNode = () => {
     const newId = `newNode_${Date.now()}`;
     const newNode = {
@@ -320,14 +323,13 @@ export default function FlowEditor() {
       position: { x: 200, y: 200 },
       data: {
         label: "Novo nó",
-        nodeType: "Mensagem",
-        stepId: newId
+        nodeType: "Mensagem"
       }
     };
     setNodes((nds) => [...nds, newNode]);
   };
 
-  // =================== Função para organizar nós na vertical ===================
+  // =================== Organizar nós (vertical/horizontal) ===================
   const organizeVertical = () => {
     setNodes((nds) =>
       nds.map((node, index) => ({
@@ -337,7 +339,6 @@ export default function FlowEditor() {
     );
   };
 
-  // =================== Função para organizar nós na horizontal ===================
   const organizeHorizontal = () => {
     setNodes((nds) =>
       nds.map((node, index) => ({
@@ -347,7 +348,7 @@ export default function FlowEditor() {
     );
   };
 
-  // =================== Ao clicar em um nó, abre o modal de edição ===================
+  // =================== Clique no nó -> abre modal ===================
   const handleNodeClick = (event, node) => {
     event.stopPropagation();
     setSelectedNode(node);
@@ -396,8 +397,7 @@ export default function FlowEditor() {
       data: {
         ...selectedNode.data,
         label: nodeLabel,
-        nodeType: nodeType,
-        stepId: newId
+        nodeType: nodeType
       }
     };
 
@@ -419,13 +419,14 @@ export default function FlowEditor() {
     downloadJSON(result, "chatbotFlow.json");
   };
 
-  // =================== Carregar JSON ===================
+  // =================== Carregar JSON local ===================
   const handleLoadJson = () => {
     if (fileInputRef.current) {
       fileInputRef.current.value = null;
       fileInputRef.current.click();
     }
   };
+
   const onFileChange = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
