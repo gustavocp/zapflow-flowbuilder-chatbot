@@ -5,13 +5,13 @@ import ReactFlow, {
   MiniMap,
   useNodesState,
   useEdgesState,
+  addEdge,
   Handle,
-  Position,
-  addEdge
+  Position
 } from "reactflow";
 import "reactflow/dist/style.css";
 
-// =================== Nó customizado (cores) ===================
+// =================== Nó customizado (cores e quebra de linha) ===================
 const CustomNode = ({ data }) => {
   // Pinta de verde somente se o tipo for "Mensagem"; os demais ficam cinza.
   const backgroundColor = data.nodeType === "Mensagem" ? "#d4f7d4" : "#f0f0f0";
@@ -24,7 +24,7 @@ const CustomNode = ({ data }) => {
         background: backgroundColor,
         padding: 10,
         maxWidth: 300,         // Limita a largura do card
-        whiteSpace: "pre-wrap" // Respeita quebras de linha
+        whiteSpace: "pre-wrap" // Preserva quebras de linha
       }}
     >
       <Handle type="target" position={Position.Top} />
@@ -103,18 +103,20 @@ const nodeTypes = { customNode: CustomNode };
 const edgeTypes = { deleteEdge: DeleteEdge };
 
 // =================== Converter JSON (carregado) => Nodes/Edges ===================
+// Se o step tiver "position", usa-o; caso contrário, calcula posição padrão.
 function convertChatbotFlowToNodesAndEdges(flow) {
   const nodes = [];
   const edges = [];
 
   flow.steps.forEach((step, index) => {
     const baseY = index * 200;
+    const position = step.position || { x: 200, y: baseY };
 
     // Nó principal
     nodes.push({
       id: step.id,
       type: "customNode",
-      position: { x: 200, y: baseY },
+      position: position,
       data: {
         label: step.messages?.[0] || "Mensagem",
         nodeType: step.nodeType || (step.capture ? "Resposta do Usuário" : "Mensagem"),
@@ -132,7 +134,7 @@ function convertChatbotFlowToNodesAndEdges(flow) {
       nodes.push({
         id: userNodeId,
         type: "customNode",
-        position: { x: 200, y: baseY + 100 },
+        position: { x: position.x, y: position.y + 100 },
         data: {
           label: "Usuário responde...",
           nodeType: "Resposta do Usuário",
@@ -175,17 +177,16 @@ function convertChatbotFlowToNodesAndEdges(flow) {
 }
 
 // =================== Converter Nodes/Edges => JSON ===================
+// Salva também a posição de cada nó.
 function convertNodesAndEdgesToChatbotFlow(nodes, edges) {
   const stepMap = {};
   const order = [];
 
-  // Monta stepMap a partir dos nós
   nodes.filter((node) => node && node.data).forEach((node) => {
     const stepId = node.data.stepId || node.id;
     if (!stepId) return;
     if (!order.includes(stepId)) order.push(stepId);
     const isResponseNode = stepId.endsWith("_response");
-
     if (!isResponseNode) {
       stepMap[stepId] = {
         id: stepId,
@@ -194,22 +195,19 @@ function convertNodesAndEdgesToChatbotFlow(nodes, edges) {
         capture: node.data.capture || null,
         validation: node.data.validation || null,
         error_message: node.data.error_message || null,
-        options: node.data.options || []
+        options: node.data.options || [],
+        position: node.position // Salva a posição
       };
     } else {
-      // É um nó "Usuário responde..."
       const originalStepId = stepId.replace("_response", "");
       if (!order.includes(originalStepId)) order.push(originalStepId);
       if (!stepMap[originalStepId]) {
         stepMap[originalStepId] = { id: originalStepId, messages: [] };
       }
-      // Indica que esse step tem "capture"
-      stepMap[originalStepId].capture =
-        stepMap[originalStepId].capture || "algum_capture";
+      stepMap[originalStepId].capture = stepMap[originalStepId].capture || "algum_capture";
     }
   });
 
-  // Processa arestas
   edges.forEach((edge) => {
     const { source, target } = edge;
     const sourceIsResponse = source.endsWith("_response");
@@ -235,7 +233,6 @@ function convertNodesAndEdgesToChatbotFlow(nodes, edges) {
     }
   });
 
-  // Cria array de steps em ordem
   const steps = order
     .map((stepId) => {
       const st = stepMap[stepId];
@@ -248,7 +245,8 @@ function convertNodesAndEdgesToChatbotFlow(nodes, edges) {
         validation: st.validation || undefined,
         error_message: st.error_message || undefined,
         next: st.next || undefined,
-        options: st.options || []
+        options: st.options || [],
+        position: st.position // Inclui posição
       };
     })
     .filter((s) => s !== null);
@@ -289,7 +287,7 @@ export default function FlowEditor() {
     }))
   );
 
-  // Modal
+  // Estado para o modal de edição
   const [selectedNode, setSelectedNode] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [nodeLabel, setNodeLabel] = useState("");
@@ -298,7 +296,7 @@ export default function FlowEditor() {
   // Para carregar arquivo JSON
   const fileInputRef = useRef(null);
 
-  // =================== Edge Functions ===================
+  // =================== Função para excluir arestas ===================
   function handleDeleteEdge(edgeId) {
     setEdges((eds) => eds.filter((e) => e.id !== edgeId));
   }
@@ -313,7 +311,7 @@ export default function FlowEditor() {
     setEdges((eds) => addEdge(newEdge, eds));
   };
 
-  // =================== Node Functions ===================
+  // =================== Função para criar novo nó ===================
   const handleNewNode = () => {
     const newId = `newNode_${Date.now()}`;
     const newNode = {
@@ -329,6 +327,27 @@ export default function FlowEditor() {
     setNodes((nds) => [...nds, newNode]);
   };
 
+  // =================== Função para organizar nós na vertical ===================
+  const organizeVertical = () => {
+    setNodes((nds) =>
+      nds.map((node, index) => ({
+        ...node,
+        position: { x: 200, y: index * 150 + 100 }
+      }))
+    );
+  };
+
+  // =================== Função para organizar nós na horizontal ===================
+  const organizeHorizontal = () => {
+    setNodes((nds) =>
+      nds.map((node, index) => ({
+        ...node,
+        position: { x: index * 300 + 200, y: 200 }
+      }))
+    );
+  };
+
+  // =================== Ao clicar em um nó, abre o modal de edição ===================
   const handleNodeClick = (event, node) => {
     event.stopPropagation();
     setSelectedNode(node);
@@ -342,6 +361,7 @@ export default function FlowEditor() {
     setSelectedNode(null);
   };
 
+  // =================== Salva alterações do nó ===================
   const saveNodeChanges = () => {
     if (!selectedNode) return;
     setNodes((prev) =>
@@ -362,23 +382,13 @@ export default function FlowEditor() {
     closeModal();
   };
 
-  const handleDeleteNode = () => {
-    if (!selectedNode) return;
-    // remove edges ligadas a esse nó
-    setEdges((eds) => eds.filter((e) => e.source !== selectedNode.id && e.target !== selectedNode.id));
-    // remove o nó
-    setNodes((nds) => nds.filter((n) => n.id !== selectedNode.id));
-    closeModal();
-  };
-
-  // =================== Duplicate Node ===================
+  // =================== Duplicar Nó ===================
   const handleDuplicateNode = () => {
     if (!selectedNode) return;
     const newId = `clone_${Date.now()}`;
     const offsetX = selectedNode.position.x + 50;
     const offsetY = selectedNode.position.y + 50;
 
-    // Cria o nó clonado com novo ID e posição deslocada
     const newNode = {
       ...selectedNode,
       id: newId,
@@ -395,6 +405,14 @@ export default function FlowEditor() {
     closeModal();
   };
 
+  // =================== Excluir Nó ===================
+  const handleDeleteNode = () => {
+    if (!selectedNode) return;
+    setEdges((eds) => eds.filter((e) => e.source !== selectedNode.id && e.target !== selectedNode.id));
+    setNodes((nds) => nds.filter((n) => n.id !== selectedNode.id));
+    closeModal();
+  };
+
   // =================== Salvar / Baixar JSON ===================
   const handleSaveJson = () => {
     const result = convertNodesAndEdgesToChatbotFlow(nodes, edges);
@@ -408,7 +426,6 @@ export default function FlowEditor() {
       fileInputRef.current.click();
     }
   };
-
   const onFileChange = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -444,6 +461,12 @@ export default function FlowEditor() {
         </button>
         <button onClick={handleLoadJson} style={{ marginRight: 10 }}>
           Carregar JSON
+        </button>
+        <button onClick={organizeVertical} style={{ marginRight: 10 }}>
+          Vertical
+        </button>
+        <button onClick={organizeHorizontal} style={{ marginRight: 10 }}>
+          Horizontal
         </button>
         <input
           type="file"
